@@ -1,0 +1,339 @@
+---
+title: "Bank Defaulter"
+author: "Roopak Krishna"
+date: "2 January 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(wesanderson)
+library(ggpubr)
+library(readr)
+library(psych)
+library(Amelia)
+library(ggplot2)
+library(caret)
+library(GGally)
+library(ggthemes)
+library(broom)
+library(dplyr)
+library(bindrcpp)
+library(caTools)
+library(rattle)
+library(RColorBrewer)
+library(nnet)
+library(rpart.plot)
+library(xgboost)
+library(DMwR)
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+setwd("C:/Users/Rupak/Desktop/edwisor/Project 2")
+bank_loan <- read.csv(paste("bank-loan.csv"),sep=",")
+#View(bank_loan)
+describe(bank_loan)
+str(bank_loan)
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+bank <- bank_loan
+missmap(bank)
+
+which(is.na(bank$default))
+colSums(is.na(bank))
+
+```
+
+
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+#install.packages("mice")
+library(mice)
+library(VIM)
+md.pattern(bank)
+tempData <- mice(bank,m=5,maxit=50,meth='logreg',seed=500)
+summary(tempData)
+tempData$meth
+completedData <- complete(tempData,1)
+summary(completedData)
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+bank <- completedData
+bank[,c("ed","default")]<- lapply(bank[,c("ed","default")], as.factor)
+levels(bank$default)[levels(bank$default)==1] <- "Defaulter"
+levels(bank$default)[levels(bank$default)==0] <- "Non Defaulter"
+View(bank)
+str(bank)
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+ggplot(bank,aes(default,..count..)) +
+  geom_bar(aes(fill=ed), position = "dodge") +
+  theme_economist()  +
+  scale_fill_manual(values=wes_palette(n=5, name="Darjeeling2")) +
+  ggtitle("~ Based on education categories ~")
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+OutVals1 <- boxplot(bank$age,plot=FALSE)$out
+OutVals1
+
+ggplot(bank,aes(age)) +
+  geom_histogram(aes(y=..density..), colour="black", fill="white")+
+  geom_density(alpha=.2, fill="#FF6666") +
+  theme_economist() +
+  xlab("AGE of customer")+
+  ggtitle("~Whole population distribution by age of bank customers~")
+```
+
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+par(mfrow=c(2,3))
+b1 <- boxplot(bank$employ,col="grey", outcol="red")
+b2 <- boxplot(bank$address,col="grey", outcol="red")
+b3 <- boxplot(bank$income,col="grey", outcol="red")
+b4 <- boxplot(bank$debtinc,col="grey", outcol="red")
+b5 <- boxplot(bank$creddebt,col="grey", outcol="red")
+b6 <- boxplot(bank$othdebt,col="grey", outcol="red")
+
+#gridExtra::grid.arrange(b1,b2,b3,b4,ncol=3)
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+OutVals2 <- boxplot(bank$employ,plot=FALSE)$out
+OutVals2
+bank[which(bank$employ %in% OutVals2),]
+
+OutVals3 <- boxplot(bank$address,plot=FALSE)$out
+OutVals3
+
+OutVals4 <- boxplot(bank$income,plot=FALSE)$out
+OutVals4
+bank[which(bank$income %in% OutVals4),]
+
+OutVals5 <- boxplot(bank$debtinc,plot=FALSE)$out
+OutVals5
+bank[which(bank$debtinc %in% OutVals5),]
+
+OutVals6 <- boxplot(bank$creddebt,plot=FALSE)$out
+OutVals6
+bank[which(bank$creddebt %in% OutVals6),]
+
+OutVals7 <- boxplot(bank$othdebt,plot=FALSE)$out
+OutVals7
+bank[which(bank$othdebt %in% OutVals7),]
+
+
+
+#bank<- bank[-which(bank$employ %in% OutVals2),]
+#bank<- bank[-which(bank$address %in% OutVals3),]
+#bank<- bank[-which(bank$income %in% OutVals4),]
+bank<- bank[-which(bank$debtinc %in% OutVals5),]
+bank<- bank[-which(bank$creddebt %in% OutVals6),]
+#bank<- bank[-which(bank$othdebt %in% OutVals7),]
+
+str(bank)
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+ggplot(bank,aes(employ,fill=default)) +
+  geom_histogram(aes(y=..density..),breaks=seq(0,33,by=1),color="grey20")+
+  geom_density(alpha=.1,fill="black")+
+  facet_wrap(~default,ncol=1,scale="fixed")+
+  theme_economist()+
+  scale_fill_manual(values=wes_palette(n=2,name="Darjeeling1"))+
+  ylab("Density")+
+  xlab("Employment status(Converted to numeric format)")+
+  ggtitle("~Employment status on the basis of Defaulters~")
+
+#summary(bank$employ)
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+ggplot(bank,aes(address,fill=default)) +
+  geom_histogram(aes(y=..density..),breaks=seq(0,34,by=1),color="grey20")+
+  geom_density(alpha=.1,fill="black")+
+  facet_wrap(~default,ncol=1,scale="fixed")+
+  theme_economist()+
+  scale_fill_manual(values=wes_palette(n=2,name="Darjeeling1"))+
+  ylab("Density")+
+  xlab("Geographic area(Converted to numeric format)")+
+  ggtitle("~Geographic area on the basis of Defaulters~")
+
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+ggplot(bank,aes(income,fill=default)) +
+  geom_histogram(aes(y=..density..),breaks=seq(13,400,by=20),color="grey20")+
+  geom_density(alpha=.1,fill="black")+
+  facet_wrap(~default,ncol=1,scale="fixed")+
+  theme_economist()+
+  scale_fill_manual(values=wes_palette(n=2,name="Darjeeling1"))+
+  ylab("Density")+
+  xlab("Gross Income of each customer")+
+  ggtitle("~Gross Income on the basis of Defaulters~")
+
+#summary(bank$income)
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+ggplot(bank,aes(debtinc,fill=default)) +
+  geom_histogram(aes(y=..density..),breaks=seq(.100,26.500,by=1),color="grey20")+
+  geom_density(alpha=.1,fill="black")+
+  facet_wrap(~default,ncol=1,scale="fixed")+
+  theme_economist()+
+  scale_fill_manual(values=wes_palette(n=2,name="Darjeeling1"))+
+  ylab("Density")+
+  xlab("Individual's debt payment")+
+  ggtitle("~Individual debt on the basis of Defaulters~")
+
+#summary(bank$debtinc)
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+ggplot(bank,aes(creddebt,fill=default)) +
+  geom_histogram(aes(y=..density..),breaks=seq(.0117,20.5613,by=1),color="grey20")+
+  geom_density(alpha=.1,fill="black")+
+  facet_wrap(~default,ncol=1,scale="fixed")+
+  theme_economist()+
+  scale_fill_manual(values=wes_palette(n=2,name="Darjeeling1"))+
+  ylab("Density")+
+  xlab("Debt to credit ratio")+
+  ggtitle("~Measurement of how much you owe your creditors 
+                      on the basis of Defaulters~")
+
+#summary(bank$creddebt)
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+ggplot(bank,aes(othdebt,fill=default)) +
+  geom_histogram(aes(y=..density..),breaks=seq(.04558,27.03360,by=1),color="grey20")+
+  geom_density(alpha=.1,fill="black")+
+  facet_wrap(~default,ncol=1,scale="fixed")+
+  theme_economist()+
+  scale_fill_manual(values=wes_palette(n=2,name="Darjeeling1"))+
+  ylab("Density")+
+  xlab("Other Debt")+
+  ggtitle("~Any other debts on the basis of Defaulters~")
+
+#summary(bank$othdebt)
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+library(usdm)
+df <- bank[,c("age","employ","address","income","othdebt","creddebt","debtinc")]
+vifcor(df)
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+library(corrgram)
+corrgram(bank, order = F, upper.panel=panel.pie, text.panel=panel.txt, main = "Correlation Plot")
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+set.seed(101)
+sample1 = sample(1:nrow(bank), 0.8 * nrow(bank))
+train_data = bank[sample1,]
+test_data = bank[-sample1,]
+
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+modelglm <- glm(default ~.,family=binomial(link='logit'),data=train_data)
+summary(modelglm)
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+glm_pred <- predict(modelglm,newdata=test_data, type="response")
+p <- ifelse(glm_pred > 0.5, "pos", "neg")
+table(p, test_data$default)
+
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+library(ROCR)
+p <- predict(modelglm, newdata=test_data)
+pr <- prediction(p, test_data$default)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+fitControl <- trainControl(method = "repeatedcv",
+                           number = 10,
+                           repeats = 10,
+                           classProbs = TRUE,
+                           summaryFunction = twoClassSummary)
+train_data$default<-make.names(train_data$default)
+test_data$default<-make.names(test_data$default)
+
+glm_train_model <- train(default ~ .,data = train_data ,method = "glm",trControl = fitControl,metric="ROC") 
+summary(glm_train_model)
+glm_train_model
+
+glm_pred <- predict(glm_train_model,newdata=test_data)
+t<-table(glm_pred, test_data$default)
+t.df<-as.data.frame(t)
+res1<-confusionMatrix(t)
+res1
+```
+
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+library(ROCR)
+p <- predict(glm_train_model, newdata=test_data)
+pr <- prediction(as.numeric(p), test_data$default)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+rf_train_model <- train(default ~ ., 
+                                      data = train_data ,
+                                      method = "rf", 
+                                      trControl = fitControl,
+                                      metric="ROC")
+
+rf_train_model
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+rf_pred <- predict(rf_train_model,newdata=test_data)
+t<-table(rf_pred, test_data$default)
+t.df<-as.data.frame(t)
+res<-confusionMatrix(t)
+res
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+library(ROCR)
+
+p <- predict(rf_train_model, newdata=test_data)
+pr <- prediction(as.numeric(p), test_data$default)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+
+```
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+
+```

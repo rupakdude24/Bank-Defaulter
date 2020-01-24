@@ -1,0 +1,2 @@
+cd "C:\Users\Rupak\Desktop\edwisor\Project 2\out"
+"C:\Program Files\R\R-3.4.4\bin\x64\R.exe" CMD BATCH "C:\Users\Rupak\Desktop\edwisor\Project 2\bankR.R" "C:\Users\Rupak\Desktop\edwisor\Project 2\out\test.Rout"
